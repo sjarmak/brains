@@ -1,0 +1,23 @@
+{
+  "name": "brains",
+  "version": "1.0.0",
+  "description": "Forkable warm-start agent brains for Claude Code: build a curated exploration session per project/component, pin its scope with content hashes, regenerate on drift, fork fresh",
+  "main": "index.js",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8",
+    "zod": "^4.4.3"
+  },
+  "bin": {
+    "brain": "./dist/cli.js"
+  }
+}
