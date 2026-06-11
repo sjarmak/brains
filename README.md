@@ -35,6 +35,8 @@ Manifests live in `<repo>/.claude/brains/<name>.json`. Scope globs support exact
 ## How it works
 
 - `brain build` runs `claude -p` headlessly in the repo with read-only tools (`Read,Glob,Grep`), prompting the explorer to read load-bearing files economically and end with a structured knowledge summary (purpose, architecture, invariants, conventions, gotchas, file map). The session id from `--output-format json` plus the scope hashes become the manifest.
+- When the repo has a CodeGraph index (`.codegraph/`), the build also allows the `mcp__codegraph` tools and instructs the explorer to use `codegraph_explore` as its primary tool — one call returns the relevant source sections, which keeps the brain transcript lean (and every fork cheaper). Rebuild the index before building a brain: the staleness gate hashes *source files*, so a lagging index can teach the brain stale facts the hash gate can't see.
+- Remote code intelligence (Sourcegraph and similar) is deliberately not used: a brain is maximum-trust injected context, and knowledge pulled from a remote index about code outside the local checkout can't be pinned by the content-hash safeguard — it would be drift the gate cannot detect. Revisit only for scopes spanning repos that can't be checked out locally, and pin those brains some other way.
 - `brain fork` resumes that session with `--fork-session`: the fork gets a new session id and the full first-person context. With `-p` it runs headless and prints the result; without, it opens interactively.
 - Builds and forks export `TOM_SWE_INTERNAL=1` so memory-plugin hooks treat them as internal machinery, not user sessions.
 

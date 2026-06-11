@@ -49,6 +49,13 @@ describe('buildExplorerPrompt', () => {
     expect(prompt).toContain('- src/b.ts')
     expect(prompt).toContain('WITHOUT re-reading')
     expect(prompt).toContain('File map')
+    expect(prompt).not.toContain('codegraph_explore')
+  })
+
+  it('adds codegraph-primary guidance when the repo has an index', () => {
+    const prompt = buildExplorerPrompt('core', ['src/'], ['src/a.ts'], true)
+    expect(prompt).toContain('codegraph_explore')
+    expect(prompt).toContain('PRIMARY')
   })
 })
 
@@ -79,6 +86,20 @@ describe('buildBrain', () => {
     expect(args).not.toContain('--fork-session')
     expect(opts.cwd).toBe(repo)
     expect(opts.env?.['TOM_SWE_INTERNAL']).toBe('1')
+  })
+
+  it('allows codegraph MCP tools when the repo has a .codegraph index', () => {
+    fs.mkdirSync(path.join(repo, '.codegraph'))
+    mockSpawnSync.mockReturnValue(cliSuccess('sess-cg'))
+
+    const result = buildBrain({ repo, name: 'core', scope: ['src/'], model: 'haiku' })
+    expect(result.ok).toBe(true)
+
+    const call = mockSpawnSync.mock.calls[0] ?? []
+    const args = (call[1] ?? []) as string[]
+    expect(args[args.indexOf('--allowedTools') + 1]).toBe('Read,Glob,Grep,mcp__codegraph')
+    const prompt = args[args.indexOf('-p') + 1] ?? ''
+    expect(prompt).toContain('codegraph_explore')
   })
 
   it('pins manifest provenance: session, hashes, commit, model', () => {

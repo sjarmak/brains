@@ -12,6 +12,8 @@
 
 import { spawnSync } from 'node:child_process'
 import { execFileSync } from 'node:child_process'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { z } from 'zod'
 
 import type { BrainManifest } from './manifest.js'
@@ -22,9 +24,10 @@ import { hashScope, resolveScope } from './manifest.js'
 export function buildExplorerPrompt(
   name: string,
   scope: readonly string[],
-  files: readonly string[]
+  files: readonly string[],
+  codegraph: boolean = false
 ): string {
-  return [
+  const lines = [
     `You are building a reusable knowledge base ("brain") named "${name}" covering this scope: ${scope.join(', ')}.`,
     `Future agents will be forked from this session and must be able to work on this scope WITHOUT re-reading files you already read — your reads and conclusions become their memory.`,
     ``,
@@ -36,7 +39,19 @@ export function buildExplorerPrompt(
     `2. Be economical: do not re-read files, do not run broad searches you don't need. Every wasted read bloats every future fork.`,
     `3. End with a structured knowledge summary under these headings: Purpose; Architecture (components and data flow); Key types and invariants; Conventions; Gotchas; File map (one line per file: what it holds and when to touch it).`,
     `4. State conclusions definitively — this is your own understanding, not a report for someone else.`,
-  ].join('\n')
+  ]
+  if (codegraph) {
+    lines.push(
+      ``,
+      `This project has a CodeGraph index (.codegraph/). Use codegraph_explore as your PRIMARY tool: it returns full source sections from all relevant files in one call, which keeps this transcript lean. Do NOT re-read files codegraph_explore already returned source for; fall back to Read/Grep only for gaps it missed.`
+    )
+  }
+  return lines.join('\n')
+}
+
+/** A repo with a CodeGraph index gets the codegraph MCP tools and guidance. */
+export function detectCodegraph(repo: string): boolean {
+  return fs.existsSync(path.join(repo, '.codegraph'))
 }
 
 // --- Headless invocation ---
@@ -89,7 +104,8 @@ export function buildBrain(options: BuildOptions): BuildResult {
   }
 
   const fileHashes = hashScope(options.repo, options.scope)
-  const prompt = buildExplorerPrompt(options.name, options.scope, files)
+  const codegraph = detectCodegraph(options.repo)
+  const prompt = buildExplorerPrompt(options.name, options.scope, files, codegraph)
 
   const proc = spawnSync(
     'claude',
@@ -101,7 +117,7 @@ export function buildBrain(options: BuildOptions): BuildResult {
       '--output-format',
       'json',
       '--allowedTools',
-      'Read,Glob,Grep',
+      codegraph ? 'Read,Glob,Grep,mcp__codegraph' : 'Read,Glob,Grep',
     ],
     {
       cwd: options.repo,
